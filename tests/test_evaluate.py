@@ -24,6 +24,12 @@ class EvaluationTests(unittest.TestCase):
             self.assertIn(item["status"], {"passed", "failed", "inapplicable"})
             self.assertIn("elapsed_ms", item)
 
+    def test_matrix_rank_does_not_change_later_test_input(self):
+        alone = nist_report(8_192, ("monobit",))[0]
+        after_rank = nist_report(8_192, ("binary_matrix_rank", "monobit"))[1]
+        self.assertEqual(after_rank["status"], alone["status"])
+        self.assertEqual(after_rank["score"], alone["score"])
+
     @patch("tools.compare_variants.compare")
     def test_command_includes_nonlinear_generator_comparison(self, compare):
         compare.return_value = [

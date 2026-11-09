@@ -64,7 +64,8 @@ def nist_report_for_bytes(
     ).astype(numpy.int64)
     report = []
     for name in names:
-        outcome = run_by_name_battery(name, bits, SP800_22R1A_BATTERY, True)
+        # The matrix-rank test mutates its input; isolate every test's sequence.
+        outcome = run_by_name_battery(name, bits.copy(), SP800_22R1A_BATTERY, True)
         if outcome is None:
             report.append({"name": name, "status": "inapplicable", "score": None, "elapsed_ms": 0.0})
             continue
