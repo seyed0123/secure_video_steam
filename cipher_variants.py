@@ -22,7 +22,27 @@ def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     """
     _validate(length, (seed,), offset)
     # TODO(student 7): replace this reference NLFSR in the handout.
-    pass
+    period = 0xFFFF
+    state = seed
+
+    def step(s: int) -> tuple[int, int]:
+        output = s & 1
+        linear = ((s >> 0) ^ (s >> 2) ^ (s >> 3) ^ (s >> 5)) & 1
+        nonlinear = ((s >> 1) & 1) & ((s >> 7) & 1)   # bit 1 AND bit 7
+        feedback = (linear ^ nonlinear) & 1
+        return output, (s >> 1) | (feedback << 15)
+
+    for _ in range((offset * 8) % period):
+        _, state = step(state)
+
+    out = bytearray()
+    for _ in range(length):
+        byte = 0
+        for _ in range(8):
+            bit, state = step(state)
+            byte = (byte << 1) | bit
+        out.append(byte)
+    return bytes(out)
 
 
 def geffe_keystream(
@@ -39,4 +59,29 @@ def geffe_keystream(
         raise ValueError("the Geffe generator needs exactly three seeds")
     _validate(length, seeds, offset)
     # TODO(student 8): replace this reference Geffe generator in the handout.
-    pass
+
+    period = 0xFFFF
+    s1, s2, s3 = seeds
+
+    def step(s: int) -> tuple[int, int]:
+        output = s & 1
+        feedback = ((s >> 0) ^ (s >> 2) ^ (s >> 3) ^ (s >> 5)) & 1
+        return output, (s >> 1) | (feedback << 15)
+
+    for _ in range((offset * 8) % period):
+        _, s1 = step(s1)
+        _, s2 = step(s2)
+        _, s3 = step(s3)
+
+    out = bytearray()
+    for _ in range(length):
+        byte = 0
+        for _ in range(8):
+            x, s1 = step(s1)
+            y, s2 = step(s2)
+            z, s3 = step(s3)
+            # Geffe: (x AND y) XOR ((1 XOR x) AND z)
+            bit = (x & y) ^ ((1 ^ x) & z)
+            byte = (byte << 1) | (bit & 1)
+        out.append(byte)
+    return bytes(out)
