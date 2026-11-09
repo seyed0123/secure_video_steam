@@ -1,4 +1,28 @@
-.venv/
+# Python
 __pycache__/
-*.py[cod]
-.pytest_cache/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Large files
+videos/
+*.mp4
+*.avi
+*.mkv
+
+# Packages downloaded locally
+*.whl
+*.tar.gz
+
+# Logs
+*.log
+
+# Environment
+.env

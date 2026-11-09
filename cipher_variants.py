@@ -21,8 +21,36 @@ def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     (bit 1 AND bit 7). Output, shifting, offset, and packing match the LFSR.
     """
     _validate(length, (seed,), offset)
-    # TODO(student 7): replace this reference NLFSR in the handout.
-    pass
+    # TODO(student 7)
+    state = seed
+    bit_offset = (offset * 8) % LFSR_PERIOD_BITS
+    for _ in range(bit_offset):
+        out = state & 1
+        fb = (
+            ((state >> 0) & 1)
+            ^ ((state >> 2) & 1)
+            ^ ((state >> 3) & 1)
+            ^ ((state >> 5) & 1)
+            ^ (((state >> 1) & 1) & ((state >> 7) & 1))
+        )
+        state = (state >> 1) | (fb << 15)
+
+    result = bytearray()
+    for _ in range(length):
+        byte = 0
+        for _ in range(8):
+            out = state & 1
+            fb = (
+                ((state >> 0) & 1)
+                ^ ((state >> 2) & 1)
+                ^ ((state >> 3) & 1)
+                ^ ((state >> 5) & 1)
+                ^ (((state >> 1) & 1) & ((state >> 7) & 1))
+            )
+            state = (state >> 1) | (fb << 15)
+            byte = (byte << 1) | out
+        result.append(byte)
+    return bytes(result)
 
 
 def geffe_keystream(
@@ -38,5 +66,22 @@ def geffe_keystream(
     if len(seeds) != 3:
         raise ValueError("the Geffe generator needs exactly three seeds")
     _validate(length, seeds, offset)
-    # TODO(student 8): replace this reference Geffe generator in the handout.
-    pass
+    # TODO(student 8)
+    s1, s2, s3 = seeds
+    bit_offset = (offset * 8) % LFSR_PERIOD_BITS
+    for _ in range(bit_offset):
+        _, s1 = _next_bit(s1)
+        _, s2 = _next_bit(s2)
+        _, s3 = _next_bit(s3)
+
+    result = bytearray()
+    for _ in range(length):
+        byte = 0
+        for _ in range(8):
+            x, s1 = _next_bit(s1)
+            y, s2 = _next_bit(s2)
+            z, s3 = _next_bit(s3)
+            bit = (x & y) ^ ((1 ^ x) & z)
+            byte = (byte << 1) | bit
+        result.append(byte)
+    return bytes(result)

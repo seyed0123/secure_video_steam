@@ -1,25 +1,68 @@
 (function exposeCipher(root) {
   "use strict";
-  const LFSR_PERIOD_BITS = 0xffff;
+  var LFSR_PERIOD_BITS = 0xffff;
 
   function nextBit(state) {
-    // TODO(student 4): replace this reference state transition in the handout.
-    
+    // TODO(student 4)
+    var out = state & 1;
+    var fb =
+      ((state >> 0) & 1) ^
+      ((state >> 2) & 1) ^
+      ((state >> 3) & 1) ^
+      ((state >> 5) & 1);
+    var newState = ((state >> 1) | (fb << 15)) & 0xffff;
+    return [out, newState];
   }
 
-  function keystream(length, seed, offset = 0) {
-    if (!Number.isInteger(seed) || seed < 1 || seed > 0xffff) throw new RangeError("invalid seed");
-    if (!Number.isInteger(length) || length < 0 || !Number.isInteger(offset) || offset < 0) {
-      throw new RangeError("invalid length or offset");
+  function keystream(length, seed, offset) {
+    if (offset === undefined || offset === null) offset = 0;
+    seed = seed | 0;
+    length = length | 0;
+    offset = offset | 0;
+    if (seed < 1 || seed > 0xffff) throw new RangeError("invalid seed");
+    if (length < 0 || offset < 0) throw new RangeError("invalid length or offset");
+
+    // TODO(student 5)
+    var state = seed & 0xffff;
+    var bitOffset = (offset * 8) % LFSR_PERIOD_BITS;
+    if (bitOffset < 0) bitOffset += LFSR_PERIOD_BITS;
+    var i, j, bit, pair, byte;
+    for (i = 0; i < bitOffset; i++) {
+      pair = nextBit(state);
+      state = pair[1];
     }
-    // TODO(student 5): replace this reference generator in the handout.
+    var result = new Uint8Array(length);
+    for (i = 0; i < length; i++) {
+      byte = 0;
+      for (j = 0; j < 8; j++) {
+        pair = nextBit(state);
+        bit = pair[0];
+        state = pair[1];
+        byte = (byte << 1) | bit;
+      }
+      result[i] = byte & 0xff;
+    }
+    return result;
   }
 
-  function xorBytes(data, seed, offset = 0) {
-    // TODO(student 6): replace this reference XOR operation in the handout.
+  function xorBytes(data, seed, offset) {
+    // TODO(student 6)
+    if (offset === undefined || offset === null) offset = 0;
+    offset = offset | 0;
+    if (offset < 0) throw new RangeError("invalid offset");
+    if (!data) return new Uint8Array(0);
+    var bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    var ks = keystream(bytes.length, seed, offset);
+    var out = new Uint8Array(bytes.length);
+    for (var i = 0; i < bytes.length; i++) {
+      out[i] = bytes[i] ^ ks[i];
+    }
+    return out;
   }
 
-  const cipher = { keystream, xorBytes };
+  var cipher = { keystream: keystream, xorBytes: xorBytes, nextBit: nextBit };
   root.LfsrCipher = cipher;
-  if (typeof module !== "undefined") module.exports = cipher;
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = cipher;
+  }
 }(typeof self !== "undefined" ? self : globalThis));
