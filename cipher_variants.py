@@ -14,6 +14,13 @@ def _validate(length: int, seeds: tuple[int, ...], offset: int) -> None:
         raise ValueError("every seed must be an integer from 1 to 65535")
 
 
+def _nlfsr_step(state: int) -> tuple[int, int]:
+    out = state & 1
+    fb = (state ^ (state >> 2) ^ (state >> 3) ^ (state >> 5)) & 1
+    fb ^= (state >> 1) & (state >> 7) & 1
+    return out, (state >> 1) | (fb << 15)
+
+
 def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     """Generate bytes from an NLFSR with one nonlinear AND feedback term.
 
@@ -21,8 +28,19 @@ def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     (bit 1 AND bit 7). Output, shifting, offset, and packing match the LFSR.
     """
     _validate(length, (seed,), offset)
-    # TODO(student 7): replace this reference NLFSR in the handout.
-    pass
+    state = seed
+
+    for _ in range(offset * 8):
+        _, state = _nlfsr_step(state)
+
+    out = bytearray(length)
+    for i in range(length):
+        byte = 0
+        for _ in range(8):
+            bit, state = _nlfsr_step(state)
+            byte = (byte << 1) | bit
+        out[i] = byte
+    return bytes(out)
 
 
 def geffe_keystream(
@@ -38,5 +56,24 @@ def geffe_keystream(
     if len(seeds) != 3:
         raise ValueError("the Geffe generator needs exactly three seeds")
     _validate(length, seeds, offset)
-    # TODO(student 8): replace this reference Geffe generator in the handout.
-    pass
+    s1, s2, s3 = seeds
+    for _ in range((offset * 8) % LFSR_PERIOD_BITS):
+        _, s1 = _next_bit(s1)
+        _, s2 = _next_bit(s2)
+        _, s3 = _next_bit(s3)
+
+    out = bytearray(length)
+    for i in range(length):
+        byte = 0
+        for _ in range(8):
+            x, s1 = _next_bit(s1)
+            y, s2 = _next_bit(s2)
+            z, s3 = _next_bit(s3)
+            bit = (x & y) ^ ((1 ^ x) & z)
+            byte = (byte << 1) | bit
+        out[i] = byte
+    return bytes(out)
+
+
+keystream_nlfsr = nlfsr_keystream
+keystream_geffe = geffe_keystream
