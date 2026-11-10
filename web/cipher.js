@@ -3,8 +3,9 @@
   const LFSR_PERIOD_BITS = 0xffff;
 
   function nextBit(state) {
-    // TODO(student 4): replace this reference state transition in the handout.
-    
+    const output = state & 1;
+    const feedback = (state ^ (state >>> 2) ^ (state >>> 3) ^ (state >>> 5)) & 1;
+    return [output, (state >>> 1) | (feedback << 15)];
   }
 
   function keystream(length, seed, offset = 0) {
@@ -12,11 +13,27 @@
     if (!Number.isInteger(length) || length < 0 || !Number.isInteger(offset) || offset < 0) {
       throw new RangeError("invalid length or offset");
     }
-    // TODO(student 5): replace this reference generator in the handout.
+    let state = seed;
+    const skip = ((offset % LFSR_PERIOD_BITS) * 8) % LFSR_PERIOD_BITS;
+    for (let bit = 0; bit < skip; bit += 1) [, state] = nextBit(state);
+    const result = new Uint8Array(length);
+    for (let index = 0; index < length; index += 1) {
+      let value = 0;
+      for (let count = 0; count < 8; count += 1) {
+        const [bit, nextState] = nextBit(state);
+        state = nextState;
+        value = (value << 1) | bit;
+      }
+      result[index] = value;
+    }
+    return result;
   }
 
   function xorBytes(data, seed, offset = 0) {
-    // TODO(student 6): replace this reference XOR operation in the handout.
+    const keys = keystream(data.length, seed, offset);
+    const result = new Uint8Array(data.length);
+    for (let index = 0; index < data.length; index += 1) result[index] = data[index] ^ keys[index];
+    return result;
   }
 
   const cipher = { keystream, xorBytes };

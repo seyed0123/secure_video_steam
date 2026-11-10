@@ -21,8 +21,26 @@ def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     (bit 1 AND bit 7). Output, shifting, offset, and packing match the LFSR.
     """
     _validate(length, (seed,), offset)
-    # TODO(student 7): replace this reference NLFSR in the handout.
-    pass
+    state = seed
+
+    def step(current: int) -> tuple[int, int]:
+        feedback = (
+            current ^ (current >> 2) ^ (current >> 3) ^ (current >> 5)
+            ^ (((current >> 1) & 1) & ((current >> 7) & 1))
+        ) & 1
+        return current & 1, (current >> 1) | (feedback << 15)
+
+    # The nonlinear register does not inherit the LFSR's 65535-bit period.
+    for _ in range(offset * 8):
+        _, state = step(state)
+    result = bytearray(length)
+    for index in range(length):
+        value = 0
+        for _ in range(8):
+            bit, state = step(state)
+            value = (value << 1) | bit
+        result[index] = value
+    return bytes(result)
 
 
 def geffe_keystream(
@@ -38,5 +56,17 @@ def geffe_keystream(
     if len(seeds) != 3:
         raise ValueError("the Geffe generator needs exactly three seeds")
     _validate(length, seeds, offset)
-    # TODO(student 8): replace this reference Geffe generator in the handout.
-    pass
+    states = list(seeds)
+    for _ in range((offset * 8) % LFSR_PERIOD_BITS):
+        states = [_next_bit(state)[1] for state in states]
+    result = bytearray(length)
+    for index in range(length):
+        value = 0
+        for _ in range(8):
+            x, states[0] = _next_bit(states[0])
+            y, states[1] = _next_bit(states[1])
+            z, states[2] = _next_bit(states[2])
+            bit = (x & y) ^ ((1 ^ x) & z)
+            value = (value << 1) | bit
+        result[index] = value
+    return bytes(result)

@@ -11,8 +11,9 @@ def _validate_seed(seed: int) -> None:
 
 def _next_bit(state: int) -> tuple[int, int]:
     """Return output bit and next state for x^16 + x^14 + x^13 + x^11 + 1."""
-    # TODO(student 1): replace this reference state transition in the handout.
-    pass
+    output = state & 1
+    feedback = ((state >> 0) ^ (state >> 2) ^ (state >> 3) ^ (state >> 5)) & 1
+    return output, (state >> 1) | (feedback << 15)
 
 
 def keystream(length: int, seed: int, offset: int = 0) -> bytes:
@@ -23,11 +24,20 @@ def keystream(length: int, seed: int, offset: int = 0) -> bytes:
     if not isinstance(offset, int) or offset < 0:
         raise ValueError("offset must be a non-negative integer")
 
-    # TODO(student 2): replace this reference generator in the handout.
-    pass
+    state = seed
+    # Reduce bit skips by the maximal bit period, not by 8192 bytes.
+    for _ in range((offset * 8) % LFSR_PERIOD_BITS):
+        _, state = _next_bit(state)
+    result = bytearray(length)
+    for index in range(length):
+        value = 0
+        for _ in range(8):
+            bit, state = _next_bit(state)
+            value = (value << 1) | bit
+        result[index] = value
+    return bytes(result)
 
 
 def xor_bytes(data: bytes, seed: int, offset: int = 0) -> bytes:
     """Encrypt or decrypt data with the keystream at absolute byte offset."""
-    # TODO(student 3): replace this reference XOR operation in the handout.
-    pass
+    return bytes(value ^ key for value, key in zip(data, keystream(len(data), seed, offset)))
