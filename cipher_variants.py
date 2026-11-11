@@ -14,6 +14,17 @@ def _validate(length: int, seeds: tuple[int, ...], offset: int) -> None:
         raise ValueError("every seed must be an integer from 1 to 65535")
 
 
+def _nlfsr_next_bit(state: int) -> tuple[int, int]:
+    output = state & 1
+    linear_feedback = (
+        (state >> 0) ^ (state >> 2) ^ (state >> 3) ^ (state >> 5)
+    ) & 1
+    nonlinear_term = ((state >> 1) & 1) & ((state >> 7) & 1)
+    feedback = linear_feedback ^ nonlinear_term
+    next_state = (state >> 1) | (feedback << 15)
+    return output, next_state
+
+
 def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     """Generate bytes from an NLFSR with one nonlinear AND feedback term.
 
@@ -22,7 +33,19 @@ def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     """
     _validate(length, (seed,), offset)
     # TODO(student 7): replace this reference NLFSR in the handout.
-    pass
+    state = seed
+    for _ in range(offset * 8):
+        _, state = _nlfsr_next_bit(state)
+
+    output_bytes = bytearray(length)
+    for i in range(length):
+        byte_val = 0
+        for _ in range(8):
+            bit, state = _nlfsr_next_bit(state)
+            byte_val = (byte_val << 1) | bit
+        output_bytes[i] = byte_val
+
+    return bytes(output_bytes)
 
 
 def geffe_keystream(
@@ -39,4 +62,22 @@ def geffe_keystream(
         raise ValueError("the Geffe generator needs exactly three seeds")
     _validate(length, seeds, offset)
     # TODO(student 8): replace this reference Geffe generator in the handout.
-    pass
+    s1, s2, s3 = seeds
+    skip_bits = (offset * 8) % LFSR_PERIOD_BITS
+    for _ in range(skip_bits):
+        _, s1 = _next_bit(s1)
+        _, s2 = _next_bit(s2)
+        _, s3 = _next_bit(s3)
+
+    output_bytes = bytearray(length)
+    for i in range(length):
+        byte_val = 0
+        for _ in range(8):
+            x, s1 = _next_bit(s1)
+            y, s2 = _next_bit(s2)
+            z, s3 = _next_bit(s3)
+            bit = (x & y) ^ ((1 ^ x) & z)
+            byte_val = (byte_val << 1) | bit
+        output_bytes[i] = byte_val
+
+    return bytes(output_bytes)
