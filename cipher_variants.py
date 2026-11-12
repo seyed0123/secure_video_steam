@@ -12,6 +12,20 @@ def _validate(length: int, seeds: tuple[int, ...], offset: int) -> None:
         raise ValueError("offset must be a non-negative integer")
     if any(not isinstance(seed, int) or not 1 <= seed <= MAX_SEED for seed in seeds):
         raise ValueError("every seed must be an integer from 1 to 65535")
+    
+def _next_nlfsr_bit(state: int) -> tuple[int, int]:
+    """One right-shifting Fibonacci NLFSR step with taps 0,2,3,5 and 1 AND 7."""
+    state &= MAX_SEED
+    output_bit = state & 1
+    feedback = (
+        ((state >> 0) & 1)
+        ^ ((state >> 2) & 1)
+        ^ ((state >> 3) & 1)
+        ^ ((state >> 5) & 1)
+        ^ (((state >> 1) & 1) & ((state >> 7) & 1))
+    )
+    next_state = (state >> 1) | (feedback << 15)
+    return output_bit, next_state & MAX_SEED
 
 
 def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
@@ -22,7 +36,19 @@ def nlfsr_keystream(length: int, seed: int, offset: int = 0) -> bytes:
     """
     _validate(length, (seed,), offset)
     # TODO(student 7): replace this reference NLFSR in the handout.
-    pass
+    state = seed
+    for _ in range(offset * 8):
+        _, state = _next_nlfsr_bit(state)
+
+    output = bytearray()
+    for _ in range(length):
+        value = 0
+        for _ in range(8):
+            bit, state = _next_nlfsr_bit(state)
+            value = (value << 1) | bit
+        output.append(value)
+    return bytes(output)
+    
 
 
 def geffe_keystream(
@@ -39,4 +65,19 @@ def geffe_keystream(
         raise ValueError("the Geffe generator needs exactly three seeds")
     _validate(length, seeds, offset)
     # TODO(student 8): replace this reference Geffe generator in the handout.
-    pass
+    states = list(seeds)
+    for _ in range((offset * 8) % LFSR_PERIOD_BITS):
+        for index in range(3):
+            _, states[index] = _next_bit(states[index])
+
+    output = bytearray()
+    for _ in range(length):
+        value = 0
+        for _ in range(8):
+            x, states[0] = _next_bit(states[0])
+            y, states[1] = _next_bit(states[1])
+            z, states[2] = _next_bit(states[2])
+            bit = (x & y) ^ ((1 ^ x) & z)
+            value = (value << 1) | bit
+        output.append(value)
+    return bytes(output)
